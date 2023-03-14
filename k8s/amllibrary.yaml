@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aml-ws-deployment
+  labels:
+    app: aml
+spec:
+  replicas: 1 
+  selector:
+    matchLabels:
+      app: aml
+  template:
+    metadata:
+      labels:
+        app: aml
+    spec:
+      containers:
+      - name: aml-ws
+        image: filippini/amllibrary:ws1.0
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8888
+        env:
+        - name: AMLLIBRARY_URL
+          valueFrom:
+            configMapKeyRef:
+              name: aml-config
+              key: aml-ws-url
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aml-ws-service
+spec:
+  type: NodePort
+  selector:
+    app: aml
+  ports:
+    - protocol: TCP
+      port: 8888
+      targetPort: 8888
+      nodePort: 30000
