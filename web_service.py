@@ -30,8 +30,9 @@ import sequence_data_processing
 app = Flask(__name__)
 
 # online path
-train_path = "/amllibrary/train"
-predict_path = "/amllibrary/predict"
+base_path = "/amllibrary"
+train_path = f"{base_path}/train"
+predict_path = f"{base_path}/predict"
 
 # exit codes
 NOT_FOUND = 404
@@ -49,6 +50,18 @@ error_msg = {
 
 # set basic logging level
 logging.basicConfig(level=logging.INFO)
+
+
+
+# ----------------------------------------------------------------------------
+# home
+# ----------------------------------------------------------------------------
+@app.route(base_path, methods=["GET"])
+def home():
+    app.logger.info(" aMLLibrary is running")
+    app.logger.info(" -> Submit your POST requests to ./train or ./predict")
+    return jsonify("AVAILABLE"), 200
+
 
 
 # ----------------------------------------------------------------------------
