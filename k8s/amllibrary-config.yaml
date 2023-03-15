@@ -4,3 +4,4 @@ metadata:
   name: aml-config
 data:
   aml-ws-url: aml-ws-service
+  aml-ws-port: "8888"
