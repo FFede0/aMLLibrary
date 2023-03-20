@@ -1,5 +1,4 @@
 resources:
-- amllibrary-vol.yaml
 - amllibrary-pvc.yaml
 - amllibrary-service.yaml
 - amllibrary-deployment.yaml
@@ -13,3 +12,6 @@ namePrefix:
 configMapGenerator:
 - name: config
   env: config.properties
+
+generatorOptions:
+ disableNameSuffixHash: true
