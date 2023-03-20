@@ -18,5 +18,4 @@ COPY . .
 
 EXPOSE 8888
 
-#CMD bash
-ENTRYPOINT ["python", "web_service.py"]
+CMD bash
