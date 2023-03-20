@@ -20,6 +20,13 @@ spec:
         imagePullPolicy: Never
         ports:
         - containerPort: 8888
+        volumeMounts:
+        - mountPath: "/mnt"
+          name: aml-vol
+      volumes:
+      - name: aml-vol
+        persistentVolumeClaim:
+          claimName: aml-claim
 ---
 apiVersion: v1
 kind: Service
