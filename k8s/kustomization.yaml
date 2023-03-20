@@ -1,0 +1,15 @@
+resources:
+- amllibrary-vol.yaml
+- amllibrary-pvc.yaml
+- amllibrary-service.yaml
+- amllibrary-deployment.yaml
+
+commonLabels:
+  app: aml
+
+namePrefix:
+  aml-ws-
+
+configMapGenerator:
+- name: config
+  env: config.properties

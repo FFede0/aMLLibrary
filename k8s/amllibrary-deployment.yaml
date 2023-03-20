@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deployment
+spec:
+  replicas: 1 
+  template:
+    spec:
+      containers:
+      - name: aml-ws
+        image: filippini/amllibrary:ws2.0
+        imagePullPolicy: Never
+        command: [
+          "python",
+          "web_service.py"
+        ]
+        ports:
+        - containerPort: 8888
+        volumeMounts:
+        - mountPath: "/mnt"
+          name: aml-vol
+      volumes:
+      - name: aml-vol
+        persistentVolumeClaim:
+          claimName: claim
