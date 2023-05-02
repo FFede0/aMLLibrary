@@ -1,4 +1,5 @@
 resources:
+- amllibrary-vol.yaml
 - amllibrary-pvc.yaml
 - amllibrary-service.yaml
 - amllibrary-deployment.yaml

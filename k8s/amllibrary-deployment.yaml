@@ -17,9 +17,9 @@ spec:
         ports:
         - containerPort: 8888
         volumeMounts:
-        - mountPath: "/mnt"
-          name: aml-vol
+        - mountPath: "/application_dir"
+          name: vol
       volumes:
-      - name: aml-vol
+      - name: vol
         persistentVolumeClaim:
           claimName: claim
