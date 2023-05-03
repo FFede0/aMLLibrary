@@ -8,7 +8,7 @@ spec:
     spec:
       containers:
       - name: aml-ws
-        image: filippini/amllibrary:ws2.0
+        image: amllibrary:23.05.03
         imagePullPolicy: Never
         command: [
           "python",
