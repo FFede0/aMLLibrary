@@ -100,14 +100,14 @@ files provided in [k8s](k8s). Specifically, [kustomize](https://kustomize.io)
 is used to automatically generate:
 * a local volume called `aml-ws-vol` (see [amllibrary-vol.yaml](k8s/amllibrary-vol.yaml)) 
 where the regressor files generated or used for prediction should be stored. Note that 
-this volume mounts the local directory `/mnt/local_volumes_here/application_dir`; 
+this volume mounts the local directory `/mnt/local_volumes_here/volume_to_share`; 
 edit to choose a different path
 * a persistent volume claim called `aml-ws-claim` (see 
 [amllibrary-pvc.yaml](k8s/amllibrary-pvc.yaml)) to link the volume to the 
 aMLLibrary deployment
 * a deployment called `aml-ws-deployment` (see 
 [amllibrary-deployment.yaml](k8s/amllibrary-deployment.yaml)) that mounts 
-the local volume into `/application_dir` and runs the [web_service.py](web_service.py) 
+the local volume into `/mnt` and runs the [web_service.py](web_service.py) 
 file starting the web service described [above](#web-services).
 * a service called `aml-ws-service` (see 
 [amllibrary-service.yaml](k8s/amllibrary-service.yaml)) that exposes port 8888 

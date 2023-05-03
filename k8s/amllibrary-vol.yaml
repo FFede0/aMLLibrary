@@ -10,7 +10,7 @@ spec:
   volumeMode: Filesystem
   storageClassName: standard
   local:
-    path: /mnt/local_volumes_here/application_dir
+    path: /mnt/local_volumes_here/volume_to_share
   nodeAffinity:
     required:
       nodeSelectorTerms:
