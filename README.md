@@ -16,7 +16,6 @@ options:
   -o OUTPUT, --output OUTPUT
                         output folder where all the models will be stored
   -j J                  number of processes to be used
-  -g, --generate-plots  generate plots
   -l, --details         print results of the single experiments
   -k, --keep-temp       do not remove temporary files after successful execution
 
@@ -35,6 +34,26 @@ Or, if you forgot the flag, you can still download the submodules even after clo
 ```shell
 git submodule update --init --recursive
 ```
+
+Using a Python virtual environment is recommended, for instance:
+```shell
+virtualenv .amlenv --python=python3.9
+```
+
+You can install the needed dependencies with:
+```shell
+pip install -r requirements.txt
+```
+
+This library also integrates neural networks via the Keras API.
+If you plan to use them, you must install one of the available backends, either manually via `pip` or by adding them to the `requirements.txt` beforehand.
+The following backends were tested:
+```
+tensorflow==2.16.1
+torch==2.3.1
+jax==0.4.29
+```
+Note that the latter also requires `jaxlib` to be installed.
 
 
 ## Tutorial
@@ -133,7 +152,27 @@ This library is integrated with the Hyperopt package for hyperparameter tuning v
 For more information, please refer to the [`README.md`](example_configurations/README.md#hyperopt) for configuration files.
 
 
+## Citation
+If you want to use this library for your own work, please cite the following paper:
+
+Guindani, Lattuada, Ardagna. *AMLLibrary: An AutoML Approach for Performance Prediction*. 37th International Conference on Modelling and Simulation (ECMS) (pp. 241-247). ECMS, 2023. ISBN: 978-3-937436-80-7
+
+```
+@inproceedings{guindani2023amllibrary,
+  title={{AMLLibrary: An AutoML Approach for Performance Prediction}},
+  author={Guindani, Bruno and Lattuada, Marco and Ardagna, Danilo},
+  booktitle={37th International Conference on Modelling and Simulation (ECMS)},
+  volume={37},
+  issue={1},
+  year={2023},
+  pages={241--247},
+  isbn={978-3-937436-80-7},
+  publisher={ECMS}
+}
+```
+
+
 ## Acknowledgments
-This library is currently maintained by the LIGATE project, which was partially funded by the European Commission under the Horizon 2020 Grant Agreement number 956137, as part of the European High-Performance Computing (EuroHPC) Joint Undertaking program.
+This library has been maintained by the LIGATE project, which was partially funded by the European Commission under the Horizon 2020 Grant Agreement number 956137, as part of the European High-Performance Computing (EuroHPC) Joint Undertaking program.
 
 It was previously maintained by the ATMOSPHERE project, which was also funded by the European Union under the Horizon 2020 Cooperation Programme, with Grant Agreement number 777154.
