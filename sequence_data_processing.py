@@ -196,6 +196,11 @@ class SequenceDataProcessing:
             if 'normalization' in self._campaign_configuration['DataPreparation'] and self._campaign_configuration['DataPreparation']['normalization']:
                 self._logger.error("normalization cannot be used with ernest")
                 sys.exit(1)
+        
+        # Check that the required metric for comparison is valid
+        if self._campaign_configuration['General']['metric'] not in ["MAPE", "RMSE", "R^2"]:
+            self._logger.error("Invalid metric: %s. The accepted values are: MAPE, RMSE, R^2", self._campaign_configuration['General']['metric'])
+            sys.exit(1)
 
         # Adding read on input to data preprocessing step
         self._data_preprocessing_list.append(data_preparation.data_loading.DataLoading(self._campaign_configuration))
@@ -283,6 +288,8 @@ class SequenceDataProcessing:
             self._campaign_configuration['General']['run_num'] = 1
         if 'seed' not in self._campaign_configuration['General']:
             self._campaign_configuration['General']['seed'] = 0
+        if 'metric' not in self._campaign_configuration['General']:
+            self._campaign_configuration['General']['metric'] = "MAPE"
 
     def process(self):
         """

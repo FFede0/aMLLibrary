@@ -75,6 +75,8 @@ class Results:
         """
         self._campaign_configuration = campaign_configuration
         self.techniques = campaign_configuration['General']['techniques']
+        self.metric = campaign_configuration['General']['metric']
+        self.metric_key = "mapes" if self.metric == "MAPE" else ("rmses" if self.metric == "RMSE" else "r2s")
         self._exp_confs = exp_confs
         self.raw_results: Dict[str, Dict] = {}
         self._logger = custom_logger.getLogger(__name__)
@@ -145,7 +147,7 @@ class Results:
             for run in range(0, self._campaign_configuration['General']['run_num']):
                 unused_techniques = self.techniques
                 self._logger.info("Printing results for run %s", run)
-                self._logger.info("-->MAPE for all techniques:")
+                self._logger.info("-->Metrics for all techniques:")
                 overall_run_best = None
                 # Print data of single techniques
                 padding = max([len(str(t)) for t in run_tec_best_conf[run]])
@@ -154,7 +156,9 @@ class Results:
                     if ec.enum_to_configuration_label[technique] in unused_techniques:
                         unused_techniques.remove(ec.enum_to_configuration_label[technique])
                     printed_name = str(technique).ljust(padding)
-                    self._logger.info("%s: (Training %f - HP Selection %f) - Validation %f", printed_name, temp.mapes["training"], temp.mapes["hp_selection"], temp.mapes["validation"])
+                    self._logger.info("%s [MAPE]: (Training %f - HP Selection %f) - Validation %f", printed_name, temp.mapes["training"], temp.mapes["hp_selection"], temp.mapes["validation"])
+                    self._logger.info("%s [RMSE]: (Training %f - HP Selection %f) - Validation %f", printed_name, temp.rmses["training"], temp.rmses["hp_selection"], temp.rmses["validation"])
+                    self._logger.info("%s [R^2]: (Training %f - HP Selection %f) - Validation %f", printed_name, temp.r2s["training"], temp.r2s["hp_selection"], temp.r2s["validation"])
 
                     # Compute which is the best technique
                     if not overall_run_best or temp.mapes["hp_selection"] < overall_run_best.mapes["hp_selection"]:
@@ -164,7 +168,7 @@ class Results:
                     exit(1)
                 if unused_techniques:
                     self._logger.info("The following techniques had no successful runs: %s", str(unused_techniques))
-                self._logger.info("<--Overall best result is %s, with configuration %s", overall_run_best.technique, overall_run_best.get_signature()[4:])
+                self._logger.info("<--Overall best result (according to %s) is %s, with configuration %s", self.metric, overall_run_best.technique, overall_run_best.get_signature()[4:])
                 self._logger.info("Metrics for best result:")
                 self._logger.info("-->")
                 self._logger.info("MAPE: (Training %f - HP Selection %f) - Validation %f", overall_run_best.mapes["training"], overall_run_best.mapes["hp_selection"], overall_run_best.mapes["validation"])
@@ -184,11 +188,15 @@ class Results:
                 run = int(conf.get_signature()[0].replace("run_", ""))
                 fold = int(conf.get_signature()[1].replace("f", ""))
                 technique = conf.technique
-                if "hp_selection" not in run_tec_conf_set[run][technique][str(conf.get_signature_string()[4:])]:
+                if self.metric_key not in run_tec_conf_set[run][technique][str(conf.get_signature_string()[4:])]:
                     for set_name in set_names:
-                        run_tec_conf_set[run][technique][str(conf.get_signature_string()[4:])][set_name] = 0
+                        run_tec_conf_set[run][technique][str(conf.get_signature_string()[4:])]["mapes"][set_name] = 0
+                        run_tec_conf_set[run][technique][str(conf.get_signature_string()[4:])]["rmses"][set_name] = 0
+                        run_tec_conf_set[run][technique][str(conf.get_signature_string()[4:])]["r2s"][set_name] = 0
                 for set_name in set_names:
-                    run_tec_conf_set[run][technique][str(conf.get_signature_string()[4:])][set_name] = run_tec_conf_set[run][technique][str(conf.get_signature_string()[4:])][set_name] + conf.mapes[set_name] / folds
+                    run_tec_conf_set[run][technique][str(conf.get_signature_string()[4:])]["mapes"][set_name] += conf.mapes[set_name] / folds
+                    run_tec_conf_set[run][technique][str(conf.get_signature_string()[4:])]["rmses"][set_name] += conf.rmses[set_name] / folds
+                    run_tec_conf_set[run][technique][str(conf.get_signature_string()[4:])]["r2s"][set_name] += conf.r2s[set_name] / folds
                 # First experiment for this fold+technique or better than the current best
                 if technique not in run_fold_tec_best_conf[run][fold] or conf.mapes["hp_selection"] < run_fold_tec_best_conf[run][fold][technique].mapes["hp_selection"]:
                     run_fold_tec_best_conf[run][fold][technique] = conf
@@ -198,11 +206,13 @@ class Results:
             for run in run_fold_tec_best_conf:
                 for fold in run_fold_tec_best_conf[run]:
                     for tec in run_fold_tec_best_conf[run][fold]:
-                        if "hp_selection" not in run_tec_set[run][technique]:
+                        if self.metric_key not in run_tec_set[run][technique]:
                             for set_name in set_names:
-                                run_tec_set[run][tec][set_name] = 0
+                                run_tec_set[run][tec]['mapes'][set_name] = 0
+                                run_tec_set[run][tec]['rmses'][set_name] = 0
+                                run_tec_set[run][tec]['r2s'][set_name] = 0
                         for set_name in set_names:
-                            run_tec_set[run][tec][set_name] = run_fold_tec_best_conf[run][fold][tec].mapes[set_name]
+                            run_tec_set[run][tec]['mapes'][set_name] = run_fold_tec_best_conf[run][fold][tec].mapes[set_name]
                             run_tec_set[run][tec]['rmses'][set_name] = run_fold_tec_best_conf[run][fold][tec].rmses[set_name]
                             run_tec_set[run][tec]['r2s'][set_name] = run_fold_tec_best_conf[run][fold][tec].r2s[set_name]
 
@@ -210,31 +220,34 @@ class Results:
             for run in range(0, self._campaign_configuration['General']['run_num']):
                 unused_techniques = self.techniques
                 self._logger.info("Printing results for run %s", run)
-                self._logger.info("-->MAPE for all techniques:")
-                overall_run_best = ()
+                self._logger.info("-->Metrics for all techniques:")
+                overall_run_best = ()  # (technique, metrics)
+
                 # Print data of single techniques
                 padding = max([len(str(t)) for t in run_tec_set[run]])
                 for technique in run_tec_set[run]:
                     if ec.enum_to_configuration_label[technique] in unused_techniques:
                         unused_techniques.remove(ec.enum_to_configuration_label[technique])
                     printed_name = str(technique).ljust(padding)
-                    self._logger.info("%s: (Training %f - HP Selection %f) - Validation %f", printed_name, run_tec_set[run][technique]["training"], run_tec_set[run][technique]["hp_selection"], run_tec_set[run][technique]["validation"])
+                    self._logger.info("%s [MAPE]: (Training %f - HP Selection %f) - Validation %f", printed_name, run_tec_set[run][technique]["mapes"]["training"], run_tec_set[run][technique]["mapes"]["hp_selection"], run_tec_set[run][technique]["mapes"]["validation"])
+                    self._logger.info("%s [RMSE]: (Training %f - HP Selection %f) - Validation %f", printed_name, run_tec_set[run][technique]["rmses"]["training"], run_tec_set[run][technique]["rmses"]["hp_selection"], run_tec_set[run][technique]["rmses"]["validation"])
+                    self._logger.info("%s [R^2]: (Training %f - HP Selection %f) - Validation %f", printed_name, run_tec_set[run][technique]["r2s"]["training"], run_tec_set[run][technique]["r2s"]["hp_selection"], run_tec_set[run][technique]["r2s"]["validation"])
 
                     # Compute which is the best technique
-                    if not overall_run_best or run_tec_set[run][technique]["hp_selection"] < overall_run_best[1]["hp_selection"]:
-                        overall_run_best = (technique, run_tec_set[run][technique], run_tec_set[run][technique]['rmses'], run_tec_set[run][technique]['r2s'])
+                    if not overall_run_best or run_tec_set[run][technique][self.metric_key]["hp_selection"] < overall_run_best[1][self.metric_key]["hp_selection"]:
+                        overall_run_best = (technique, run_tec_set[run][technique])
 
                 if not overall_run_best:
                     self._logger.error("No valid model was found")
                     exit(1)
                 if unused_techniques:
                     self._logger.info("The following techniques had no successful runs: %s", str(unused_techniques))
-                self._logger.info("<--Overall best result is %s", overall_run_best[0])
+                self._logger.info("<--Overall best result (according to %s) is %s", self.metric, overall_run_best[0])
                 self._logger.info("Metrics for best result:")
                 self._logger.info("-->")
-                self._logger.info("MAPE: (Training %f - HP Selection %f) - Validation %f", overall_run_best[1]["training"], overall_run_best[1]["hp_selection"], overall_run_best[1]["validation"])
-                self._logger.info("RMSE: (Training %f - HP Selection %f) - Validation %f", overall_run_best[2]["training"], overall_run_best[2]["hp_selection"], overall_run_best[2]["validation"])
-                self._logger.info("R^2 : (Training %f - HP Selection %f) - Validation %f", overall_run_best[3]["training"], overall_run_best[3]["hp_selection"], overall_run_best[3]["validation"])
+                self._logger.info("MAPE: (Training %f - HP Selection %f) - Validation %f", overall_run_best[1]["mapes"]["training"], overall_run_best[1]["mapes"]["hp_selection"], overall_run_best[1]["mapes"]["validation"])
+                self._logger.info("RMSE: (Training %f - HP Selection %f) - Validation %f", overall_run_best[1]["rmses"]["training"], overall_run_best[1]["rmses"]["hp_selection"], overall_run_best[1]["rmses"]["validation"])
+                self._logger.info("R^2 : (Training %f - HP Selection %f) - Validation %f", overall_run_best[1]["r2s"]["training"], overall_run_best[1]["r2s"]["hp_selection"], overall_run_best[1]["r2s"]["validation"])
                 self._logger.info("<--")
 
             # Overall best will contain as first argument the technique with the best (across runs) average (across folds) mape on validation; now we consider on all the runs and on all the folds the configuraiton of this technique with best validation mape
@@ -252,13 +265,13 @@ class Results:
                 fold = int(conf.get_signature()[2].replace("f", ""))
                 technique = conf.technique
                 configuration = str(conf.get_signature()[4:])
-                if "hp_selection" not in run_tec_conf_set[run][technique][configuration]:
+                if self.metric_key not in run_tec_conf_set[run][technique][configuration]:
                     for set_name in set_names:
-                        run_tec_conf_set[run][technique][configuration][set_name] = 0
+                        run_tec_conf_set[run][technique][configuration]["mapes"][set_name] = 0
                         run_tec_conf_set[run][technique][configuration]["rmses"][set_name] = 0
                         run_tec_conf_set[run][technique][configuration]["r2s"][set_name] = 0
                 for set_name in set_names:
-                    run_tec_conf_set[run][technique][configuration][set_name] += conf.mapes[set_name] / folds
+                    run_tec_conf_set[run][technique][configuration]["mapes"][set_name] += conf.mapes[set_name] / folds
                     run_tec_conf_set[run][technique][configuration]["rmses"][set_name] += conf.rmses[set_name] / folds
                     run_tec_conf_set[run][technique][configuration]["r2s"][set_name] += conf.r2s[set_name] / folds
 
@@ -267,15 +280,15 @@ class Results:
             for run in run_tec_conf_set:
                 for tec in run_tec_conf_set[run]:
                     for conf in run_tec_conf_set[run][tec]:
-                        if tec not in run_tec_best_conf[run] or run_tec_conf_set[run][tec][conf]["hp_selection"] < run_tec_best_conf[run][tec][1]["hp_selection"]:
+                        if tec not in run_tec_best_conf[run] or run_tec_conf_set[run][tec][conf][self.metric_key]["hp_selection"] < run_tec_best_conf[run][tec][1][self.metric_key]["hp_selection"]:
                             run_tec_best_conf[run][tec] = (conf, run_tec_conf_set[run][tec][conf])
 
             # Print results for each run
             for run in range(0, self._campaign_configuration['General']['run_num']):
                 unused_techniques = self.techniques
                 self._logger.info("Printing results for run %s", run)
-                self._logger.info("-->MAPE for all techniques:")
-                overall_run_best = ()  # (technique, configuration, mapes)
+                self._logger.info("-->Metrics for all techniques:")
+                overall_run_best = ()  # (technique, configuration, metrics)
 
                 # Print data of single techniques
                 padding = max([len(str(t)) for t in run_tec_best_conf[run]])
@@ -284,10 +297,12 @@ class Results:
                     if ec.enum_to_configuration_label[technique] in unused_techniques:
                         unused_techniques.remove(ec.enum_to_configuration_label[technique])
                     printed_name = str(technique).ljust(padding)
-                    self._logger.info("%s: (Training %f - HP Selection %f) - Validation %f", printed_name, temp[1]["training"], temp[1]["hp_selection"], temp[1]["validation"])
+                    self._logger.info("%s [MAPE]: (Training %f - HP Selection %f) - Validation %f", printed_name, temp[1]["mapes"]["training"], temp[1]["mapes"]["hp_selection"], temp[1]["mapes"]["validation"])
+                    self._logger.info("%s [RMSE]: (Training %f - HP Selection %f) - Validation %f", printed_name, temp[1]["rmses"]["training"], temp[1]["rmses"]["hp_selection"], temp[1]["rmses"]["validation"])
+                    self._logger.info("%s [R^2]: (Training %f - HP Selection %f) - Validation %f", printed_name, temp[1]["r2s"]["training"], temp[1]["r2s"]["hp_selection"], temp[1]["r2s"]["validation"])
 
                     # Compute which is the best technique
-                    if not overall_run_best or temp[1]["hp_selection"] < overall_run_best[2]["hp_selection"]:
+                    if not overall_run_best or temp[1][self.metric_key]["hp_selection"] < overall_run_best[2][self.metric_key]["hp_selection"]:
                         overall_run_best = (technique, temp[0], temp[1])
 
                 if not overall_run_best:
@@ -295,10 +310,10 @@ class Results:
                     exit(1)
                 if unused_techniques:
                     self._logger.info("The following techniques had no successful runs: %s", str(unused_techniques))
-                self._logger.info("<--Overall best result is %s, with configuration %s", overall_run_best[0], overall_run_best[1])
+                self._logger.info("<--Overall best result (according to %s) is %s, with configuration %s", self.metric, overall_run_best[0], overall_run_best[1])
                 self._logger.info("Metrics for best result:")
                 self._logger.info("-->")
-                self._logger.info("MAPE: (Training %f - HP Selection %f) - Validation %f", overall_run_best[2]["training"], overall_run_best[2]["hp_selection"], overall_run_best[2]["validation"])
+                self._logger.info("MAPE: (Training %f - HP Selection %f) - Validation %f", overall_run_best[2]["mapes"]["training"], overall_run_best[2]["mapes"]["hp_selection"], overall_run_best[2]["mapes"]["validation"])
                 self._logger.info("RMSE: (Training %f - HP Selection %f) - Validation %f", overall_run_best[2]["rmses"]["training"], overall_run_best[2]["rmses"]["hp_selection"], overall_run_best[2]["rmses"]["validation"])
                 self._logger.info("R^2 : (Training %f - HP Selection %f) - Validation %f", overall_run_best[2]["r2s"]["training"], overall_run_best[2]["r2s"]["hp_selection"], overall_run_best[2]["r2s"]["validation"])
                 self._logger.info("<--")
@@ -316,22 +331,22 @@ class Results:
                 ext_fold = int(conf.get_signature()[2].replace("f", ""))
                 technique = conf.technique
                 configuration = str(conf.get_signature()[4:])
-                if "hp_selection" not in run_tec_conf_set[run][technique][configuration]:
+                if self.metric_key not in run_tec_conf_set[run][technique][configuration]:
                     for set_name in set_names:
-                        run_tec_conf_set[run][technique][configuration][set_name] = 0
+                        run_tec_conf_set[run][technique][configuration]["mapes"][set_name] = 0
                         run_tec_conf_set[run][technique][configuration]["rmses"][set_name] = 0
                         run_tec_conf_set[run][technique][configuration]["r2s"][set_name] = 0
                 for set_name in set_names:
-                    run_tec_conf_set[run][technique][configuration][set_name] += (conf.mapes[set_name] / (folds * folds))
+                    run_tec_conf_set[run][technique][configuration]["mapes"][set_name] += (conf.mapes[set_name] / (folds * folds))
                     run_tec_conf_set[run][technique][configuration]["rmses"][set_name] += (conf.rmses[set_name] / (folds * folds))
                     run_tec_conf_set[run][technique][configuration]["r2s"][set_name] += (conf.r2s[set_name] / (folds * folds))
                 if configuration not in run_efold_tec_conf_set[run][ext_fold][technique]:
                     for set_name in set_names:
-                        run_efold_tec_conf_set[run][ext_fold][technique][configuration][set_name] = 0
+                        run_efold_tec_conf_set[run][ext_fold][technique][configuration]["mapes"][set_name] = 0
                         run_efold_tec_conf_set[run][ext_fold][technique][configuration]["rmses"][set_name] = 0
                         run_efold_tec_conf_set[run][ext_fold][technique][configuration]["r2s"][set_name] = 0
                 for set_name in set_names:
-                    run_efold_tec_conf_set[run][ext_fold][technique][configuration][set_name] += (conf.mapes[set_name] / (folds * folds))
+                    run_efold_tec_conf_set[run][ext_fold][technique][configuration]["mapes"][set_name] += (conf.mapes[set_name] / (folds * folds))
                     run_efold_tec_conf_set[run][ext_fold][technique][configuration]["rmses"][set_name] += (conf.rmses[set_name] / (folds * folds))
                     run_efold_tec_conf_set[run][ext_fold][technique][configuration]["r2s"][set_name] += (conf.r2s[set_name] / (folds * folds))
 
@@ -341,7 +356,7 @@ class Results:
                 for efold in run_efold_tec_conf_set[run]:
                     for tec in run_efold_tec_conf_set[run][efold]:
                         for conf in run_efold_tec_conf_set[run][efold][tec]:
-                            if conf not in run_efold_tec_best_conf[run][efold][tec] or run_efold_tec_conf_set[run][efold][tec][conf]["hp_selection"] < run_efold_tec_best_conf[run][efold][tec][1]["hp_selection"]:
+                            if conf not in run_efold_tec_best_conf[run][efold][tec] or run_efold_tec_conf_set[run][efold][tec][conf][self.metric_key]["hp_selection"] < run_efold_tec_best_conf[run][efold][tec][1][self.metric_key]["hp_selection"]:
                                 run_efold_tec_best_conf[run][efold][tec] = (conf, run_efold_tec_conf_set[run][efold][tec][conf], run_efold_tec_conf_set[run][efold][tec][conf])
 
             # Aggregate on external folds
@@ -349,13 +364,13 @@ class Results:
             for run in run_efold_tec_best_conf:
                 for efold in run_efold_tec_best_conf[run]:
                     for tec in run_efold_tec_best_conf[run][efold]:
-                        if "hp_selection" not in run_tec_set[run][tec]:
+                        if self.metric_key not in run_tec_set[run][tec]:
                             for set_name in set_names:
-                                run_tec_set[run][tec][set_name] = 0
+                                run_tec_set[run][tec]["mapes"][set_name] = 0
                                 run_tec_set[run][tec]["rmses"][set_name] = 0
                                 run_tec_set[run][tec]["r2s"][set_name] = 0
                         for set_name in set_names:
-                            run_tec_set[run][tec][set_name] += run_efold_tec_best_conf[run][efold][tec][1][set_name]
+                            run_tec_set[run][tec]["mapes"][set_name] += run_efold_tec_best_conf[run][efold][tec][1]["mapes"][set_name]
                             run_tec_set[run][tec]["rmses"][set_name] += run_efold_tec_best_conf[run][efold][tec][1]["rmses"][set_name]
                             run_tec_set[run][tec]["r2s"][set_name] += run_efold_tec_best_conf[run][efold][tec][1]["r2s"][set_name]
 
@@ -363,7 +378,7 @@ class Results:
             for run in range(0, self._campaign_configuration['General']['run_num']):
                 unused_techniques = self.techniques
                 self._logger.info("Printing results for run %s", run)
-                self._logger.info("-->MAPE for all techniques:")
+                self._logger.info("-->Metrics for all techniques:")
                 overall_run_best = ()
                 # Print data of single techniques
                 padding = max([len(str(t)) for t in run_tec_set[run]])
@@ -371,10 +386,12 @@ class Results:
                     if ec.enum_to_configuration_label[technique] in unused_techniques:
                         unused_techniques.remove(ec.enum_to_configuration_label[technique])
                     printed_name = str(technique).ljust(padding)
-                    self._logger.info("%s: (Training %f - HP Selection %f) - Validation %f", printed_name, run_tec_set[run][technique]["training"], run_tec_set[run][technique]["hp_selection"], run_tec_set[run][technique]["validation"])
+                    self._logger.info("%s [MAPE]: (Training %f - HP Selection %f) - Validation %f", printed_name, run_tec_set[run][technique]["mapes"]["training"], run_tec_set[run][technique]["mapes"]["hp_selection"], run_tec_set[run][technique]["mapes"]["validation"])
+                    self._logger.info("%s [RMSE]: (Training %f - HP Selection %f) - Validation %f", printed_name, run_tec_set[run][technique]["rmses"]["training"], run_tec_set[run][technique]["rmses"]["hp_selection"], run_tec_set[run][technique]["rmses"]["validation"])
+                    self._logger.info("%s [R^2]: (Training %f - HP Selection %f) - Validation %f", printed_name, run_tec_set[run][technique]["r2s"]["training"], run_tec_set[run][technique]["r2s"]["hp_selection"], run_tec_set[run][technique]["r2s"]["validation"])
 
                     # Compute which is the best technique
-                    if not overall_run_best or run_tec_set[run][technique]["hp_selection"] < overall_run_best[1]["hp_selection"]:
+                    if not overall_run_best or run_tec_set[run][technique][self.metric_key]["hp_selection"] < overall_run_best[1][self.metric_key]["hp_selection"]:
                         overall_run_best = (technique, run_tec_set[run][technique])
 
                 if not overall_run_best:
@@ -382,10 +399,10 @@ class Results:
                     exit(1)
                 if unused_techniques:
                     self._logger.info("The following techniques had no successful runs: %s", str(unused_techniques))
-                self._logger.info("<--Overall best result is %s", overall_run_best[0])
+                self._logger.info("<--Overall best result (according to %s) is %s", self.metric, overall_run_best[0])
                 self._logger.info("Metrics for best result:")
                 self._logger.info("-->")
-                self._logger.info("MAPE: (Training %f - HP Selection %f) - Validation %f", overall_run_best[1]["training"], overall_run_best[1]["hp_selection"], overall_run_best[1]["validation"])
+                self._logger.info("MAPE: (Training %f - HP Selection %f) - Validation %f", overall_run_best[1]["mapes"]["training"], overall_run_best[1]["mapes"]["hp_selection"], overall_run_best[1]["mapes"]["validation"])
                 self._logger.info("RMSE: (Training %f - HP Selection %f) - Validation %f", overall_run_best[1]["rmses"]["training"], overall_run_best[1]["rmses"]["hp_selection"], overall_run_best[1]["rmses"]["validation"])
                 self._logger.info("R^2 : (Training %f - HP Selection %f) - Validation %f", overall_run_best[1]["r2s"]["training"], overall_run_best[1]["r2s"]["hp_selection"], overall_run_best[1]["r2s"]["validation"])
                 self._logger.info("<--")
@@ -407,8 +424,8 @@ class Results:
         if bool(self._campaign_configuration['General']['details']):
             for run in run_tec_conf_set:
                 for tec in run_tec_conf_set[run]:
-                    for conf in run_tec_conf_set[run][tec]:
-                        assert "hp_selection" in run_tec_conf_set[run][tec][conf]
-                        assert "validation" in run_tec_conf_set[run][tec][conf], "training MAPE not found for " + str(run) + str(tec) + str(conf)
-                        self._logger.info("Run %s - Technique %s - Conf %s - Training MAPE %f - Test MAPE %f", str(run), ec.enum_to_configuration_label[tec], str(conf), run_tec_conf_set[run][tec][conf]["hp_selection"], run_tec_conf_set[run][tec][conf]["validation"])
+                    for conf in run_tec_conf_set[run][tec][self.metric_key]:
+                        assert "hp_selection" in run_tec_conf_set[run][tec][conf][self.metric_key], "hp_selection " + self.metric_key + " not found for " + str(run) + str(tec) + str(conf)
+                        assert "validation" in run_tec_conf_set[run][tec][conf][self.metric_key], "validation " + self.metric_key + " not found for " + str(run) + str(tec) + str(conf)
+                        self._logger.info("Run %s - Technique %s - Conf %s - Training %s %f - Test %s %f", str(run), ec.enum_to_configuration_label[tec], str(conf), self.metric, run_tec_conf_set[run][tec][conf][self.metric_key]["hp_selection"], self.metric, run_tec_conf_set[run][tec][conf][self.metric_key]["validation"])
         return best_confs, best_technique
