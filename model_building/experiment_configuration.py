@@ -25,7 +25,7 @@ from enum import Enum
 import warnings
 
 import numpy as np
-from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 
 import regressor
 
@@ -102,6 +102,12 @@ class ExperimentConfiguration(abc.ABC):
 
     r2s: dict of str: float
         The R^2 scores obtained on the different sets
+    
+    maes: dict of str: float
+        The MAE obtained on the different sets
+    
+    mses: dict of str: float
+        The MSE obtained on the different sets
 
     _experiment_directory: str
         The directory where output of this experiment has to be stored
@@ -203,10 +209,12 @@ class ExperimentConfiguration(abc.ABC):
         self._regression_inputs = regression_inputs.copy()
         self._signature = self._compute_signature(prefix)
         self._logger = custom_logger.getLogger(self.get_signature_string())
-        self.supported_metrics = ["MAPE", "RMSE", "R^2"]
+        self.supported_metrics = ["MAPE", "RMSE", "R^2", "MAE", "MSE"]
         self.mapes = {}
         self.rmses = {}
         self.r2s = {}
+        self.maes = {}
+        self.mses = {}
         self._regressor = None
         self.trained = False
 
@@ -331,8 +339,14 @@ class ExperimentConfiguration(abc.ABC):
             self.mapes[set_name] = mean_absolute_percentage_error(real_y, predicted_y)
             self._logger.debug("MAPE is %f", self.mapes[set_name])
             # Root Mean Squared Error
-            self.rmses[set_name] = mean_squared_error(real_y, predicted_y, squared=False)
+            self.rmses[set_name] = mean_squared_error(real_y, predicted_y, squared = False)
             self._logger.debug("RMSE is %f", self.rmses[set_name])
+            # Mean Absolute Error
+            self.maes[set_name] = mean_absolute_error(real_y, predicted_y)
+            self._logger.debug("MAE is %f", self.maes[set_name])
+            # Mean Squared Error
+            self.mses[set_name] = mean_squared_error(real_y, predicted_y, squared = True)
+            self._logger.debug("MSE is %f", self.mses[set_name])
             # R-squared metric
             self.r2s[set_name] = r2_score(real_y, predicted_y)
             self._logger.debug("R^2  is %f", self.r2s[set_name])
@@ -376,7 +390,7 @@ class ExperimentConfiguration(abc.ABC):
         Parameters
         ----------
         metric: str
-            Metric name (MAPE, RMSE, R^2)
+            Metric name (MAPE, RMSE, R^2, ...)
         
         Returns
         ----------
@@ -386,6 +400,10 @@ class ExperimentConfiguration(abc.ABC):
             return self.mapes
         elif metric == "RMSE":
             return self.rmses
+        elif metric == "MAE":
+            return self.maes
+        elif metric == "MSE":
+            return self.mses
         elif metric == "R^2":
             return self.r2s
         else:
