@@ -164,9 +164,10 @@ class ModelBuilding:
         results.collect_data()
         self._logger.info("---Collected")
 
-        for signature, mapes in results.raw_results.items():
-            for experiment_configuration, mape in mapes.items():
-                self._logger.debug("%s: MAPE on %s set is %f", signature, experiment_configuration, mape)
+        for signature, metrics in results.raw_results.items():
+            metric = metrics[results.metric]
+            for experiment_configuration, val in metric.items():
+                self._logger.debug("%s: %s on %s set is %f", signature, results.metric, experiment_configuration, val)
 
         best_confs, best_technique = results.get_bests()
         results.dismiss_handler()
