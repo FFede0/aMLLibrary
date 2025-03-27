@@ -203,6 +203,7 @@ class ExperimentConfiguration(abc.ABC):
         self._regression_inputs = regression_inputs.copy()
         self._signature = self._compute_signature(prefix)
         self._logger = custom_logger.getLogger(self.get_signature_string())
+        self.supported_metrics = ["MAPE", "RMSE", "R^2"]
         self.mapes = {}
         self.rmses = {}
         self.r2s = {}
@@ -367,6 +368,29 @@ class ExperimentConfiguration(abc.ABC):
         """
         xdata, _ = self._regression_inputs.get_xy_data(rows)
         return self._regressor.predict(xdata)
+    
+    def get_metric(self, metric):
+        """
+        Return the required metric dictionary
+
+        Parameters
+        ----------
+        metric: str
+            Metric name (MAPE, RMSE, R^2)
+        
+        Returns
+        ----------
+            The dictionary that stores the required metric values
+        """
+        if metric == "MAPE":
+            return self.mapes
+        elif metric == "RMSE":
+            return self.rmses
+        elif metric == "R^2":
+            return self.r2s
+        else:
+            self._logger.error("Invalid metric: %s", metric)
+        return None
 
     def get_signature(self):
         """
