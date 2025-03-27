@@ -232,7 +232,10 @@ class ModelBuilding:
                     self._logger.debug("Wrapped: "+str(exp._wrapped_experiment_configuration.get_x_columns()))
 
             printed_name = str(technique).ljust(padding)
-            self._logger.info("---%s: MAPE %f - RMSE %f - R^2 %f", printed_name, best_conf.mapes["validation"], best_conf.rmses["validation"], best_conf.r2s["validation"])
+            printed_metrics = []
+            for metric in best_conf.supported_metrics:
+                printed_metrics.append(f"{metric} {float(best_conf.get_metric(metric)['validation'])}")
+            self._logger.info("---%s: %s", printed_name, " - ".join(printed_metrics))
 
             # Build the regressor with all data
             hypers = best_conf._wrapped_experiment_configuration._hyperparameters if best_conf.is_wrapper() else best_conf._hyperparameters
