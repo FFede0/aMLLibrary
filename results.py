@@ -152,9 +152,9 @@ class Results:
                     continue
                 run = int(conf.get_signature()[0].replace("run_", ""))
                 technique = conf.technique
-                run_tec_conf_set[run][technique][str(conf.get_signature()[4:])] = conf.get_metric(self.metric)
+                run_tec_conf_set[run][technique][str(conf.get_signature()[4:])][self.metric] = conf.get_metric(self.metric)
                 # First experiment for this technique or better than the current best
-                if technique not in run_tec_best_conf[run] or self._comparison_operator(run_tec_conf_set[run][technique][str(conf.get_signature()[4:])]["hp_selection"], run_tec_best_conf[run][technique].get_metric(self.metric)["hp_selection"]):
+                if technique not in run_tec_best_conf[run] or self._comparison_operator(run_tec_conf_set[run][technique][str(conf.get_signature()[4:])][self.metric]["hp_selection"], run_tec_best_conf[run][technique].get_metric(self.metric)["hp_selection"]):
                     run_tec_best_conf[run][technique] = conf
 
             # Print results for each run
@@ -175,7 +175,7 @@ class Results:
                             metric_val = temp.get_metric(metric)
                             self._logger.info("%s [%s]: (Training %f - HP Selection %f) - Validation %f", printed_name, metric, metric_val["training"], metric_val["hp_selection"], metric_val["validation"])
                     else:
-                        self._logger.info("%s [%s]: (Training %f - HP Selection %f) - Validation %f", printed_name, self.metric, temp.get_metric(metric)["training"], temp.get_metric(metric)["hp_selection"], temp.get_metric(metric)["validation"])
+                        self._logger.info("%s [%s]: (Training %f - HP Selection %f) - Validation %f", printed_name, self.metric, temp.get_metric(self.metric)["training"], temp.get_metric(self.metric)["hp_selection"], temp.get_metric(self.metric)["validation"])
 
                     # Compute which is the best technique
                     if not overall_run_best or self._comparison_operator(temp.get_metric(self.metric)["hp_selection"], overall_run_best.get_metric(self.metric)["hp_selection"]):
