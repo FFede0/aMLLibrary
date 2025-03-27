@@ -3,10 +3,13 @@ __pycache__/
 
 # Folders of datasets
 inputs/*/*
+INPUT
 
 # Library output files
 output*
 outputs/
+OUTPUT_*
+PREDICT_*
 
 # Folders to ignore
 .amlenv
