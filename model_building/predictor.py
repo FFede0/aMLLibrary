@@ -59,8 +59,8 @@ class Predictor(sequence_data_processing.SequenceDataProcessing):
         self._done_file_flag = os.path.join(output_folder, 'done')
 
         # Read regressor if given
-        if regressor_file:
-            self.load_regressor(regressor_file)
+        self._regressor_file = regressor_file
+        self._regressor = None
 
 
     def load_regressor(self, regressor_file):
@@ -87,14 +87,6 @@ class Predictor(sequence_data_processing.SequenceDataProcessing):
         regressor_file: str
             Pickle binary file that stores the model to be used for prediction
         """
-        if regressor_file:
-            self.load_regressor(regressor_file)
-
-        # Read configuration from the file indicated by the argument
-        if not os.path.exists(config_file):
-            self._logger.error("%s does not exist", config_file)
-            sys.exit(-1)
-
         # Check if output path already exist
         if os.path.exists(self._output_folder) and os.path.exists(self._done_file_flag):
             self._logger.error("%s already exists. Terminating the program...", self._output_folder)
@@ -117,6 +109,18 @@ class Predictor(sequence_data_processing.SequenceDataProcessing):
             print('Unrecognized type for configuration file: '+str(type(config_file)))
             sys.exit(1)
 
+        # Load regressor
+        if regressor_file:
+            self._regressor_file = regressor_file
+        if not self._regressor or regressor_file:
+            if 'keras_backend' in self._campaign_configuration['General']:
+                backend = self._campaign_configuration['General'].get('keras_backend', 'tensorflow')
+                os.environ['KERAS_BACKEND'] = backend
+                os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+                os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+                import keras
+            self.load_regressor(self._regressor_file)
+        
         # Read data
         self._logger.info("-->Executing data load")
         data_loader = data_preparation.data_loading.DataLoading(self._campaign_configuration)
