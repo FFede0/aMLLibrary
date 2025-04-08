@@ -19,12 +19,13 @@ import os
 import pickle
 import sys
 import pandas as pd
+import json
 
 import custom_logger
 import sequence_data_processing
 import data_preparation.data_loading
 import data_preparation.onehot_encoding
-from model_building.experiment_configuration import mean_absolute_percentage_error
+from model_building.metrics import Metrics
 
 
 class Predictor(sequence_data_processing.SequenceDataProcessing):
@@ -61,6 +62,9 @@ class Predictor(sequence_data_processing.SequenceDataProcessing):
         # Read regressor if given
         self._regressor_file = regressor_file
         self._regressor = None
+
+        # Initialize class to compute metrics
+        self.metrics = Metrics()
 
 
     def load_regressor(self, regressor_file):
@@ -149,13 +153,12 @@ class Predictor(sequence_data_processing.SequenceDataProcessing):
         self._logger.info("Saved to %s", str(yy_file))
 
         # Compute and output MAPE
-        mape = mean_absolute_percentage_error(yy, yy_pred)
-        self._logger.info("---MAPE = %s", str(mape))
+        metrics = self.metrics.compute_metrics(yy, yy_pred)
+        self._logger.info("---MAPE = %s", str(metrics["MAPE"]))
         if mape_to_file:
-          mape_file = os.path.join(self._output_folder, 'mape.txt')
+          mape_file = os.path.join(self._output_folder, 'metrics.json')
           with open(mape_file, 'w') as f:
-            f.write(str(mape))
-            f.write('\n')
+            f.write(json.dumps(metrics, indent = 2))
           self._logger.info("Saved MAPE to %s", str(mape_file))
 
         self._logger.info("<--Performed prediction")
