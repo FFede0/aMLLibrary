@@ -256,7 +256,7 @@ class SFSExperimentConfiguration(WrapperExperimentConfiguration):
             raise KeyboardInterrupt
 
         x_cols = list(self._sfs.k_feature_names_)
-        self._logger.debug("Selected features: %s", str(x_cols))
+        self._logger.debug("\nSelected features: %s", str(x_cols))
         # Use the selected features to retrain the regressor, after restoring column names
         filtered_xdata = self._sfs.transform(xdata)  # is an np.array
         filtered_xdata = pd.DataFrame(filtered_xdata, columns=x_cols)
