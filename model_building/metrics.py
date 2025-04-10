@@ -23,7 +23,7 @@ def mean_absolute_percentage_error(y_true, y_pred):
     if len(y_true.shape) == 1:
         y_true = y_true.values.reshape(y_true.shape[0],1)
     mape = np.abs(y_pred - y_true) / np.maximum(np.abs(y_true), epsilon)
-    return np.average(mape, axis=0)
+    return np.average(np.average(mape, axis=0), axis = 0)
 
 
 class Metrics:
