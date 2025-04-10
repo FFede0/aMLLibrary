@@ -48,13 +48,15 @@ class Technique(Enum):
     STEPWISE = 7
     DUMMY = 8
     NEURAL_NETWORK = 9
+    GPR = 10
 
 
 enum_to_configuration_label = {Technique.LR_RIDGE: 'LRRidge', Technique.XGBOOST: 'XGBoost',
                                Technique.DT: 'DecisionTree', Technique.RF: 'RandomForest',
                                Technique.SVR: 'SVR', Technique.NNLS: 'NNLS',
                                Technique.STEPWISE: 'Stepwise', Technique.DUMMY: 'Dummy',
-                               Technique.NEURAL_NETWORK: 'NeuralNetwork'}
+                               Technique.NEURAL_NETWORK: 'NeuralNetwork',
+                               Technique.GPR: 'GaussianProcess'}
 
 
 class ExperimentConfiguration(abc.ABC):

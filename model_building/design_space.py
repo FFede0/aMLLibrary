@@ -40,6 +40,7 @@ import model_building.stepwise_experiment_configuration as sw
 import model_building.svr_experiment_configuration as svr
 import model_building.xgboost_experiment_configuration as xgb
 import model_building.wrapper_experiment_configuration as wec
+import model_building.gaussian_process_experiment_configuration as gpr
 
 
 class ExpConfsGenerator(abc.ABC):
@@ -313,6 +314,9 @@ class TechniqueExpConfsGenerator(ExpConfsGenerator):
                                                            regression_inputs, prefix)
             elif self._technique == ec.Technique.NEURAL_NETWORK:
                 point = nene.NeuralNetworkExperimentConfiguration(self._campaign_configuration, hyperparams_point_values,
+                                                                  regression_inputs, prefix)
+            elif self._technique == ec.Technique.GPR:
+                point = gpr.GaussianProcessExperimentConfiguration(self._campaign_configuration, hyperparams_point_values,
                                                                   regression_inputs, prefix)
             else:
                 self._logger.error("Not supported regression technique")
