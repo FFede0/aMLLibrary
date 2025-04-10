@@ -2,6 +2,7 @@
 Copyright 2019 Marco Lattuada
 Copyright 2021 Bruno Guindani
 Copyright 2022 Nahuel Coliva
+Copyright 2025 Federica Filippini
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -25,9 +26,9 @@ from enum import Enum
 import warnings
 
 import numpy as np
-from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 
 import regressor
+from model_building.metrics import Metrics
 
 # pylint: disable=wrong-import-position
 import custom_logger  # noqa: E402
@@ -54,14 +55,6 @@ enum_to_configuration_label = {Technique.LR_RIDGE: 'LRRidge', Technique.XGBOOST:
                                Technique.SVR: 'SVR', Technique.NNLS: 'NNLS',
                                Technique.STEPWISE: 'Stepwise', Technique.DUMMY: 'Dummy',
                                Technique.NEURAL_NETWORK: 'NeuralNetwork'}
-
-
-def mean_absolute_percentage_error(y_true, y_pred):
-    epsilon = np.finfo(np.float64).eps
-    if len(y_true.shape) == 1:
-        y_true = y_true.values.reshape(y_true.shape[0],1)
-    mape = np.abs(y_pred - y_true) / np.maximum(np.abs(y_true), epsilon)
-    return np.average(mape, axis=0)
 
 
 class ExperimentConfiguration(abc.ABC):
@@ -94,20 +87,11 @@ class ExperimentConfiguration(abc.ABC):
     _signature: str
         The string signature associated with this experiment configuration
 
-    mapes: dict of str: float
-        The MAPE obtained on the different sets
+    _metrics_calculator: Metrics
+        The metrics calculator
 
-    rmses: dict of str: float
-        The Root Mean Squared Errors (RMSE) obtained on the different sets
-
-    r2s: dict of str: float
-        The R^2 scores obtained on the different sets
-    
-    maes: dict of str: float
-        The MAE obtained on the different sets
-    
-    mses: dict of str: float
-        The MSE obtained on the different sets
+    metrics: dict of str: dict of str: float
+        The metrics obtained on the different sets
 
     _experiment_directory: str
         The directory where output of this experiment has to be stored
@@ -209,12 +193,8 @@ class ExperimentConfiguration(abc.ABC):
         self._regression_inputs = regression_inputs.copy()
         self._signature = self._compute_signature(prefix)
         self._logger = custom_logger.getLogger(self.get_signature_string())
-        self.supported_metrics = ["MAPE", "RMSE", "R^2", "MAE", "MSE"]
-        self.mapes = {}
-        self.rmses = {}
-        self.r2s = {}
-        self.maes = {}
-        self.mses = {}
+        self._metrics_calculator = Metrics()
+        self.metrics = {m: {} for m in self._metrics_calculator.supported_metrics()}
         self._regressor = None
         self.trained = False
 
@@ -335,21 +315,11 @@ class ExperimentConfiguration(abc.ABC):
                 predicted_y = y_scaler.inverse_transform(predicted_y)
                 real_y = y_scaler.inverse_transform(real_y)
             # self._logger.debug("Real vs. predicted: %s %s", str(real_y), str(predicted_y))
-            # Mean Absolute Percentage Error
-            self.mapes[set_name] = mean_absolute_percentage_error(real_y, predicted_y)
-            self._logger.debug("MAPE is %f", self.mapes[set_name])
-            # Root Mean Squared Error
-            self.rmses[set_name] = mean_squared_error(real_y, predicted_y, squared = False)
-            self._logger.debug("RMSE is %f", self.rmses[set_name])
-            # Mean Absolute Error
-            self.maes[set_name] = mean_absolute_error(real_y, predicted_y)
-            self._logger.debug("MAE is %f", self.maes[set_name])
-            # Mean Squared Error
-            self.mses[set_name] = mean_squared_error(real_y, predicted_y, squared = True)
-            self._logger.debug("MSE is %f", self.mses[set_name])
-            # R-squared metric
-            self.r2s[set_name] = r2_score(real_y, predicted_y)
-            self._logger.debug("R^2  is %f", self.r2s[set_name])
+            # Compute metrics
+            metrics = self._metrics_calculator.compute_metrics(real_y, predicted_y)
+            for metric, value in metrics.items():
+                self._logger.debug("%s is %f", metric, value)
+                self.metrics[metric][set_name] = value
             self._logger.debug("<--")
 
         self._stop_file_logger()
@@ -382,33 +352,6 @@ class ExperimentConfiguration(abc.ABC):
         """
         xdata, _ = self._regression_inputs.get_xy_data(rows)
         return self._regressor.predict(xdata)
-    
-    def get_metric(self, metric):
-        """
-        Return the required metric dictionary
-
-        Parameters
-        ----------
-        metric: str
-            Metric name (MAPE, RMSE, R^2, ...)
-        
-        Returns
-        ----------
-            The dictionary that stores the required metric values
-        """
-        if metric == "MAPE":
-            return self.mapes
-        elif metric == "RMSE":
-            return self.rmses
-        elif metric == "MAE":
-            return self.maes
-        elif metric == "MSE":
-            return self.mses
-        elif metric == "R^2":
-            return self.r2s
-        else:
-            self._logger.error("Invalid metric: %s", metric)
-        return None
 
     def get_signature(self):
         """

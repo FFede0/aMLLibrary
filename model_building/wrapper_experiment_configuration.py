@@ -2,6 +2,7 @@
 Copyright 2019 Marco Lattuada
 Copyright 2021 Bruno Guindani
 Copyright 2022 Nahuel Coliva
+Copyright 2025 Federica Filippini
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -244,7 +245,9 @@ class SFSExperimentConfiguration(WrapperExperimentConfiguration):
             return
         verbose = 2 if self._campaign_configuration['General']['debug'] else 0
         min_features = self._campaign_configuration['FeatureSelection'].get('min_features', 1)
-        self._sfs = mlxtend.feature_selection.SequentialFeatureSelector(estimator=self.get_regressor(), k_features=(min_features, self._campaign_configuration['FeatureSelection']['max_features']), verbose=verbose, scoring=sklearn.metrics.make_scorer(ec.mean_absolute_percentage_error, greater_is_better=False), cv=self._campaign_configuration['FeatureSelection']['folds'])
+        metric = self._campaign_configuration['FeatureSelection'].get('metric', 'MAPE')
+        scoring = sklearn.metrics.make_scorer(self._metrics_calculator.get_metric_operator(metric), greater_is_better=self._metrics_calculator.greater_is_better(metric))
+        self._sfs = mlxtend.feature_selection.SequentialFeatureSelector(estimator=self.get_regressor(), k_features=(min_features, self._campaign_configuration['FeatureSelection']['max_features']), verbose=verbose, scoring=scoring, cv=self._campaign_configuration['FeatureSelection']['folds'])
         xdata, ydata = self._regression_inputs.get_xy_data(self._regression_inputs.inputs_split["training"])
         # set the maximum number of required features to the minimum between itself and the number of existing features
         if self._campaign_configuration['FeatureSelection']['max_features'] > xdata.shape[1]:

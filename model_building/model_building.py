@@ -2,6 +2,7 @@
 Copyright 2019 Marco Lattuada
 Copyright 2021 Bruno Guindani
 Copyright 2022 Nahuel Coliva
+Copyright 2025 Federica Filippini
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -233,8 +234,8 @@ class ModelBuilding:
 
             printed_name = str(technique).ljust(padding)
             printed_metrics = []
-            for metric in best_conf.supported_metrics:
-                printed_metrics.append(f"{metric} {float(best_conf.get_metric(metric)['validation'])}")
+            for metric, metric_vals in best_conf.metrics.items():
+                printed_metrics.append(f"{metric} {float(metric_vals['validation'])}")
             self._logger.info("---%s: %s", printed_name, " - ".join(printed_metrics))
 
             # Build the regressor with all data

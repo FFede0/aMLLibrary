@@ -1,6 +1,7 @@
 """
 Copyright 2019 Marco Lattuada
 Copyright 2021 Bruno Guindani
+Copyright 2025 Federica Filippini
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -27,6 +28,7 @@ import tqdm
 
 import custom_logger
 import model_building.experiment_configuration as ec
+from model_building.metrics import Metrics
 
 
 def evaluate_wrapper(experiment_configuration):
@@ -84,11 +86,8 @@ class Results:
         self._campaign_configuration = campaign_configuration
         self.techniques = campaign_configuration['General']['techniques']
         self.metric = campaign_configuration['General']['metric']
-        self._comparison_operator = (
-            lambda x,y : x < y  # lower is better
-        ) if self.metric != "R^2" else (
-            lambda x,y : x > y  # higher is better
-        )
+        self._metrics_calculator = Metrics()
+        self._comparison_operator = self._metrics_calculator.get_comparison_operator(self.metric)
         self._exp_confs = exp_confs
         self.raw_results: Dict[str, Dict[str, Dict]] = {}
         self._logger = custom_logger.getLogger(__name__)
@@ -123,9 +122,7 @@ class Results:
 
         self.raw_results = {}
         for exp_conf in self._exp_confs:
-            self.raw_results[tuple(exp_conf.get_signature())] = {
-                m: exp_conf.get_metric(m) for m in exp_conf.supported_metrics
-            }
+            self.raw_results[tuple(exp_conf.get_signature())] = exp_conf.metrics
 
     def get_bests(self):
         """
@@ -152,9 +149,9 @@ class Results:
                     continue
                 run = int(conf.get_signature()[0].replace("run_", ""))
                 technique = conf.technique
-                run_tec_conf_set[run][technique][str(conf.get_signature()[4:])][self.metric] = conf.get_metric(self.metric)
+                run_tec_conf_set[run][technique][str(conf.get_signature()[4:])][self.metric] = conf.metrics[self.metric]
                 # First experiment for this technique or better than the current best
-                if technique not in run_tec_best_conf[run] or self._comparison_operator(run_tec_conf_set[run][technique][str(conf.get_signature()[4:])][self.metric]["hp_selection"], run_tec_best_conf[run][technique].get_metric(self.metric)["hp_selection"]):
+                if technique not in run_tec_best_conf[run] or self._comparison_operator(run_tec_conf_set[run][technique][str(conf.get_signature()[4:])][self.metric]["hp_selection"], run_tec_best_conf[run][technique].metrics[self.metric]["hp_selection"]):
                     run_tec_best_conf[run][technique] = conf
 
             # Print results for each run
@@ -171,14 +168,13 @@ class Results:
                         unused_techniques.remove(ec.enum_to_configuration_label[technique])
                     printed_name = str(technique).ljust(padding)
                     if bool(self._campaign_configuration['General']['details']):
-                        for metric in temp.supported_metrics:
-                            metric_val = temp.get_metric(metric)
+                        for metric, metric_val in temp.metrics.items():
                             self._logger.info("%s [%s]: (Training %f - HP Selection %f) - Validation %f", printed_name, metric, metric_val["training"], metric_val["hp_selection"], metric_val["validation"])
                     else:
-                        self._logger.info("%s [%s]: (Training %f - HP Selection %f) - Validation %f", printed_name, self.metric, temp.get_metric(self.metric)["training"], temp.get_metric(self.metric)["hp_selection"], temp.get_metric(self.metric)["validation"])
+                        self._logger.info("%s [%s]: (Training %f - HP Selection %f) - Validation %f", printed_name, self.metric, temp.metrics[self.metric]["training"], temp.metrics[self.metric]["hp_selection"], temp.metrics[self.metric]["validation"])
 
                     # Compute which is the best technique
-                    if not overall_run_best or self._comparison_operator(temp.get_metric(self.metric)["hp_selection"], overall_run_best.get_metric(self.metric)["hp_selection"]):
+                    if not overall_run_best or self._comparison_operator(temp.metrics[self.metric]["hp_selection"], overall_run_best.metrics[self.metric]["hp_selection"]):
                         overall_run_best = temp
                 if not overall_run_best:
                     self._logger.error("No valid model was found")
@@ -188,8 +184,8 @@ class Results:
                 self._logger.info("<--Overall best result (according to %s) is %s, with configuration %s", self.metric, overall_run_best.technique, overall_run_best.get_signature()[4:])
                 self._logger.info("Metrics for best result:")
                 self._logger.info("-->")
-                for metric in temp.supported_metrics:
-                    metric_val = overall_run_best.get_metric(metric)
+                for metric in temp.metrics:
+                    metric_val = overall_run_best.metrics[metric]
                     self._logger.info("%s: (Training %f - HP Selection %f) - Validation %f", metric, metric_val["training"], metric_val["hp_selection"], metric_val["validation"])
                 self._logger.info("<--")
 
@@ -205,13 +201,15 @@ class Results:
                 run = int(conf.get_signature()[0].replace("run_", ""))
                 fold = int(conf.get_signature()[1].replace("f", ""))
                 technique = conf.technique
-                if "hp_selection" not in run_tec_conf_set[run][technique][str(conf.get_signature_string()[4:])]:
+                if self.metric not in run_tec_conf_set[run][technique][str(conf.get_signature_string()[4:])]:
+                    for metric in conf.metrics:
+                        for set_name in set_names:
+                            run_tec_conf_set[run][technique][str(conf.get_signature_string()[4:])][metric][set_name] = 0
+                for metric, metric_vals in conf.metrics.items():
                     for set_name in set_names:
-                        run_tec_conf_set[run][technique][str(conf.get_signature_string()[4:])][set_name] = 0
-                for set_name in set_names:
-                    run_tec_conf_set[run][technique][str(conf.get_signature_string()[4:])][set_name] += conf.get_metric(self.metric)[set_name] / folds
+                        run_tec_conf_set[run][technique][str(conf.get_signature_string()[4:])][metric][set_name] += conf.metrics[self.metric][set_name] / folds
                 # First experiment for this fold+technique or better than the current best
-                if technique not in run_fold_tec_best_conf[run][fold] or self._comparison_operator(conf.get_metric(self.metric)["hp_selection"], run_fold_tec_best_conf[run][fold][technique].get_metric(self.metric)["hp_selection"]):
+                if technique not in run_fold_tec_best_conf[run][fold] or self._comparison_operator(conf.metrics[self.metric]["hp_selection"], run_fold_tec_best_conf[run][fold][technique].metrics[self.metric]["hp_selection"]):
                     run_fold_tec_best_conf[run][fold][technique] = conf
 
             # Aggregate different folds (only the value of the metrics)
@@ -220,12 +218,12 @@ class Results:
                 for fold in run_fold_tec_best_conf[run]:
                     for tec in run_fold_tec_best_conf[run][fold]:
                         if self.metric not in run_tec_set[run][technique]:
-                            for metric in run_fold_tec_best_conf[run][fold][tec].supported_metrics:
+                            for metric in run_fold_tec_best_conf[run][fold][tec].metrics:
                                 for set_name in set_names:
                                     run_tec_set[run][tec][metric][set_name] = 0
-                        for metric in run_fold_tec_best_conf[run][fold][tec].supported_metrics:
+                        for metric, metric_vals in run_fold_tec_best_conf[run][fold][tec].metrics.items():
                             for set_name in set_names:
-                                run_tec_set[run][tec][metric][set_name] = run_fold_tec_best_conf[run][fold][tec].get_metric(metric)[set_name]
+                                run_tec_set[run][tec][metric][set_name] = metric_vals[set_name]
 
             # Print results for each run
             for run in range(0, self._campaign_configuration['General']['run_num']):
@@ -267,7 +265,7 @@ class Results:
 
         elif (validation, hp_selection) in {("All", "KFold"), ("HoldOut", "KFold"), ("Interpolation", "KFold"), ("Extrapolation", "KFold")}:
             folds = float(self._campaign_configuration['General']['folds'])
-            # For each run, for each technique, for each configuration, the aggregated mape
+            # For each run, for each technique, for each configuration, the aggregated metrics
             run_tec_conf_set = recursivedict()
 
             # Hyperparameter search aggregating over folders
@@ -279,12 +277,12 @@ class Results:
                 technique = conf.technique
                 configuration = str(conf.get_signature()[4:])
                 if self.metric not in run_tec_conf_set[run][technique][configuration]:
-                    for metric in conf.supported_metrics:
+                    for metric in conf.metrics:
                         for set_name in set_names:
                             run_tec_conf_set[run][technique][configuration][metric][set_name] = 0
-                for metric in conf.supported_metrics:
+                for metric, metric_vals in conf.metrics.items():
                     for set_name in set_names:
-                        run_tec_conf_set[run][technique][configuration][metric][set_name] += conf.get_metric(metric)[set_name] / folds
+                        run_tec_conf_set[run][technique][configuration][metric][set_name] += metric_vals[set_name] / folds
 
             # Select the best configuration for each technique across different folders
             run_tec_best_conf = recursivedict()
@@ -345,19 +343,19 @@ class Results:
                 technique = conf.technique
                 configuration = str(conf.get_signature()[4:])
                 if self.metric not in run_tec_conf_set[run][technique][configuration]:
-                    for metric in conf.supported_metrics:
+                    for metric in conf.metrics:
                         for set_name in set_names:
                             run_tec_conf_set[run][technique][configuration][metric][set_name] = 0
-                for metric in conf.supported_metrics:
+                for metric, metric_vals in conf.metrics.items():
                     for set_name in set_names:
-                        run_tec_conf_set[run][technique][configuration][metric][set_name] += (conf.get_metric(metric)[set_name] / (folds * folds))
+                        run_tec_conf_set[run][technique][configuration][metric][set_name] += (metric_vals[set_name] / (folds * folds))
                 if configuration not in run_efold_tec_conf_set[run][ext_fold][technique]:
-                    for metric in conf.supported_metrics:
+                    for metric in conf.metrics:
                         for set_name in set_names:
                             run_efold_tec_conf_set[run][ext_fold][technique][configuration][metric][set_name] = 0
-                for metric in conf.supported_metrics:
+                for metric, metric_vals in conf.metrics.items():
                     for set_name in set_names:
-                        run_efold_tec_conf_set[run][ext_fold][technique][configuration][metric][set_name] += (conf.get_metric(metric)[set_name] / (folds * folds))
+                        run_efold_tec_conf_set[run][ext_fold][technique][configuration][metric][set_name] += (metric_vals[set_name] / (folds * folds))
 
             # Select the best configuration for each technique in each external fold across different internal folders
             run_efold_tec_best_conf = recursivedict()
@@ -425,15 +423,16 @@ class Results:
             if not conf.trained:
                 continue
             technique = conf.technique
-            if technique not in best_confs or conf.mapes["validation"] < best_confs[technique].mapes["validation"]:
+            if technique not in best_confs or self._comparison_operator(conf.metrics[self.metric]["validation"], best_confs[technique].metrics[self.metric]["validation"]):
                 best_confs[technique] = conf
         for technique in best_confs:
-            if not best_technique or best_confs[technique].mapes["validation"] < best_confs[best_technique].mapes["validation"]:
+            if not best_technique or self._comparison_operator(best_confs[technique].metrics[self.metric]["validation"], best_confs[best_technique].metrics[self.metric]["validation"]):
                 best_technique = technique
         if bool(self._campaign_configuration['General']['details']):
             for run in run_tec_conf_set:
                 for tec in run_tec_conf_set[run]:
                     for conf in run_tec_conf_set[run][tec]:
+                        print(run_tec_conf_set[run][tec][conf])
                         assert "hp_selection" in run_tec_conf_set[run][tec][conf][self.metric], "hp_selection " + self.metric + " not found for " + str(run) + str(tec) + str(conf)
                         assert "validation" in run_tec_conf_set[run][tec][conf][self.metric], "validation " + self.metric + " not found for " + str(run) + str(tec) + str(conf)
                         self._logger.info("Run %s - Technique %s - Conf %s - Training %s %f - Test %s %f", str(run), ec.enum_to_configuration_label[tec], str(conf), self.metric, run_tec_conf_set[run][tec][conf][self.metric]["hp_selection"], self.metric, run_tec_conf_set[run][tec][conf][self.metric]["validation"])

@@ -42,7 +42,7 @@ class Metrics:
             "R^2": {
               "func": r2_score,
               "attributes": {},
-              "comp": (lambda x,y : x > y)  # higher is better
+              "comp": (lambda x,y : x > y)  # greater is better
             }, 
             "MAE": {
               "func": mean_absolute_error,
@@ -67,6 +67,18 @@ class Metrics:
         for metric in self._metrics_dict:
             metrics[metric] = self.compute_metric(metric, real_y, predicted_y)
         return metrics
+    
+    def greater_is_better(self, metric):
+        if metric in self._metrics_dict:
+            return self._metrics_dict[metric]["comp"](3,2)
+        else:
+            return None
+    
+    def get_metric_operator(self, metric):
+        if metric in self._metrics_dict:
+            return self._metrics_dict[metric]["func"]
+        else:
+            return None
     
     def get_comparison_operator(self, metric):
         if metric in self._metrics_dict:
