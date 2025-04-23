@@ -432,7 +432,6 @@ class Results:
             for run in run_tec_conf_set:
                 for tec in run_tec_conf_set[run]:
                     for conf in run_tec_conf_set[run][tec]:
-                        print(run_tec_conf_set[run][tec][conf])
                         assert "hp_selection" in run_tec_conf_set[run][tec][conf][self.metric], "hp_selection " + self.metric + " not found for " + str(run) + str(tec) + str(conf)
                         assert "validation" in run_tec_conf_set[run][tec][conf][self.metric], "validation " + self.metric + " not found for " + str(run) + str(tec) + str(conf)
                         self._logger.info("Run %s - Technique %s - Conf %s - Training %s %f - Test %s %f", str(run), ec.enum_to_configuration_label[tec], str(conf), self.metric, run_tec_conf_set[run][tec][conf][self.metric]["hp_selection"], self.metric, run_tec_conf_set[run][tec][conf][self.metric]["validation"])

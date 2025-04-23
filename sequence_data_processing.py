@@ -198,7 +198,7 @@ class SequenceDataProcessing:
                 sys.exit(1)
         
         # Check that the required metric for comparison is valid
-        if self._campaign_configuration['General']['metric'] not in ["MAPE", "RMSE", "R^2", "MAE", "MSE"]:
+        if self._campaign_configuration['General']['metric'] not in ["MAPE", "RMSE", "R^2", "MAE", "MSE", "QL"]:
             self._logger.error("Invalid metric: %s. The accepted values are: MAPE, RMSE, R^2, MAE, MSE", self._campaign_configuration['General']['metric'])
             sys.exit(1)
 

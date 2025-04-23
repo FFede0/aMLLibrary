@@ -14,7 +14,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
+from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error, mean_pinball_loss
 import numpy as np
 
 
@@ -27,7 +27,7 @@ def mean_absolute_percentage_error(y_true, y_pred):
 
 
 class Metrics:
-    def __init__(self):
+    def __init__(self, quantile: float = 0.5):
         self._metrics_dict = {
             "MAPE": {
               "func": mean_absolute_percentage_error,
@@ -52,6 +52,11 @@ class Metrics:
             "MSE": {
               "func": mean_squared_error,
               "attributes": {"squared": True},
+              "comp": (lambda x,y : x < y)  # lower is better
+            }, 
+            "QL": {
+              "func": mean_pinball_loss,
+              "attributes": {"alpha": quantile},
               "comp": (lambda x,y : x < y)  # lower is better
             }
         }
